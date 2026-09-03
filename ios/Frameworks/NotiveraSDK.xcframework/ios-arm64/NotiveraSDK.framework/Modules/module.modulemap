@@ -1,0 +1,11 @@
+framework module NotiveraSDK {
+  umbrella header "NotiveraSDK.h"
+  export *
+
+  module * { export * }
+}
+
+module NotiveraSDK.Swift {
+  header "NotiveraSDK-Swift.h"
+  requires objc
+}
