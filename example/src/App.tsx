@@ -1,179 +1,140 @@
 import { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Button,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
-import { Notivera, type NotiveraPushEvent } from 'react-native-notivera';
+import { Pressable, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { HomeScreen } from './HomeScreen';
+import { OfflineScreen } from './OfflineScreen';
 import {
   initializeNotiveraDemo,
   subscribeDemoEvents,
 } from './notiveraBootstrap';
+import { installIosOfflineDelegate } from './offlineIosDemo';
+import { colors } from './theme';
 
 export default function App() {
-  const [ready, setReady] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [deviceId, setDeviceId] = useState<string | null>(null);
-  const [tag, setTag] = useState('news');
-  const [inAppId, setInAppId] = useState('');
-  const [status, setStatus] = useState('Starting…');
-  const [events, setEvents] = useState<NotiveraPushEvent[]>([]);
+  const [index, setIndex] = useState(0);
+  const [status, setStatus] = useState('Initializing…');
+  const [snack, setSnack] = useState<string | null>(null);
+
+  function showMessage(message: string) {
+    setSnack(message);
+    setTimeout(() => {
+      setSnack((current) => (current === message ? null : current));
+    }, 2800);
+  }
 
   useEffect(() => {
     const unsubscribe = subscribeDemoEvents((event) => {
-      setEvents((prev) => [event, ...prev].slice(0, 20));
+      const label = `${event.eventType ?? 'event'} ${event.title ?? event.id}`;
+      showMessage(label);
     });
 
     initializeNotiveraDemo()
-      .then((id) => {
-        setDeviceId(id);
-        setReady(true);
-        setStatus('SDK ready');
+      .then(async () => {
+        await installIosOfflineDelegate();
+        setStatus('Ready');
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
-        setStatus(`Init failed: ${message}`);
+        setStatus(`Initialize failed: ${message}`);
       });
 
     return unsubscribe;
   }, []);
 
-  async function run(label: string, action: () => Promise<unknown>) {
-    setBusy(true);
-    try {
-      const result = await action();
-      setStatus(`${label}: ${String(result ?? 'ok')}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      setStatus(`${label} failed: ${message}`);
-    } finally {
-      setBusy(false);
-    }
-  }
+  const ready = status === 'Ready';
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Notivera RN Demo</Text>
-      <Text style={styles.meta}>platform={Platform.OS}</Text>
-      <Text style={styles.meta}>deviceId={deviceId ?? '—'}</Text>
-      <Text style={styles.status}>{status}</Text>
-      {!ready ? <ActivityIndicator style={styles.spinner} /> : null}
-
-      <TextInput
-        style={styles.input}
-        value={tag}
-        onChangeText={setTag}
-        placeholder="Tag"
-        autoCapitalize="none"
-      />
-      <View style={styles.row}>
-        <Button
-          title="Subscribe tag"
-          disabled={!ready || busy}
-          onPress={() =>
-            run('subscribeTag', () => Notivera.instance.subscribeTag(tag))
-          }
-        />
-        <Button
-          title="Unsubscribe"
-          disabled={!ready || busy}
-          onPress={() =>
-            run('unsubscribeTag', () => Notivera.instance.unsubscribeTag(tag))
-          }
-        />
+    <SafeAreaView style={styles.safe}>
+      <View style={styles.appBar}>
+        <Text style={styles.appBarTitle}>Notivera</Text>
       </View>
-
-      <TextInput
-        style={styles.input}
-        value={inAppId}
-        onChangeText={setInAppId}
-        placeholder="In-app custom identifier"
-        autoCapitalize="none"
-      />
-      <Button
-        title="Show in-app"
-        disabled={!ready || busy || !inAppId}
-        onPress={() =>
-          run('showInApp', () =>
-            Notivera.instance.showInAppNotification(inAppId)
-          )
-        }
-      />
-      <Button
-        title="Close notification view"
-        disabled={!ready || busy}
-        onPress={() =>
-          run('closeNotificationView', () =>
-            Notivera.instance.closeNotificationView()
-          )
-        }
-      />
-      <Button
-        title="Request auth prompts"
-        disabled={!ready || busy}
-        onPress={() =>
-          run('requestAuthorisationPrompts', () =>
-            Notivera.instance.requestAuthorisationPrompts()
-          )
-        }
-      />
-
-      <Text style={styles.section}>Recent events</Text>
-      {events.length === 0 ? (
-        <Text style={styles.meta}>No events yet</Text>
-      ) : (
-        events.map((event) => (
-          <Text key={`${event.id}-${event.eventType}`} style={styles.event}>
-            {event.eventType}: {event.title ?? event.id}
+      {status !== 'Ready' ? (
+        <View style={styles.banner}>
+          <Text style={styles.bannerText}>{status}</Text>
+        </View>
+      ) : null}
+      <View style={styles.body}>
+        {index === 0 ? (
+          <HomeScreen onMessage={showMessage} />
+        ) : (
+          <OfflineScreen ready={ready} onMessage={showMessage} />
+        )}
+      </View>
+      {snack ? (
+        <View style={styles.snack}>
+          <Text style={styles.snackText}>{snack}</Text>
+        </View>
+      ) : null}
+      <View style={styles.nav}>
+        <Pressable style={styles.navItem} onPress={() => setIndex(0)}>
+          <Text style={[styles.navLabel, index === 0 && styles.navLabelActive]}>
+            Home
           </Text>
-        ))
-      )}
-    </ScrollView>
+        </Pressable>
+        <Pressable style={styles.navItem} onPress={() => setIndex(1)}>
+          <Text style={[styles.navLabel, index === 1 && styles.navLabelActive]}>
+            Offline
+          </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    paddingTop: 56,
-    gap: 12,
+  safe: {
+    flex: 1,
+    backgroundColor: colors.background,
   },
-  title: {
-    fontSize: 22,
+  appBar: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  appBarTitle: {
+    color: colors.onPrimary,
+    fontSize: 20,
     fontWeight: '600',
   },
-  meta: {
-    color: '#555',
-  },
-  status: {
-    marginVertical: 8,
-  },
-  spinner: {
-    marginVertical: 8,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+  banner: {
+    backgroundColor: colors.banner,
+    paddingHorizontal: 16,
     paddingVertical: 10,
   },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
+  bannerText: {
+    color: colors.bannerText,
   },
-  section: {
-    marginTop: 16,
-    fontSize: 16,
+  body: {
+    flex: 1,
+  },
+  snack: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 80,
+    backgroundColor: '#323232',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  snackText: {
+    color: colors.onPrimary,
+  },
+  nav: {
+    flexDirection: 'row',
+    backgroundColor: colors.surface,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.outline,
+  },
+  navItem: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  navLabel: {
+    color: colors.muted,
     fontWeight: '600',
   },
-  event: {
-    color: '#222',
+  navLabelActive: {
+    color: colors.primary,
   },
 });

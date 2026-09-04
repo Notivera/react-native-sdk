@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 import {
   Notivera,
   type NotiveraConfig,
@@ -34,6 +34,41 @@ function log(message: string) {
   console.log(`${logTag} ${message}`);
 }
 
+/**
+ * Android 13+ offline demos post system notifications via NotificationManager.
+ * Without POST_NOTIFICATIONS they appear to do nothing.
+ */
+export async function ensureAndroidNotificationPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true;
+  }
+  if (typeof Platform.Version === 'number' && Platform.Version < 33) {
+    return true;
+  }
+
+  const already = await PermissionsAndroid.check(
+    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+  );
+  if (already) {
+    log('POST_NOTIFICATIONS already granted');
+    return true;
+  }
+
+  const result = await PermissionsAndroid.request(
+    PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS,
+    {
+      title: 'Allow notifications',
+      message:
+        'Notivera offline demos show as system notifications. Please allow notifications.',
+      buttonPositive: 'Allow',
+      buttonNegative: 'Deny',
+    }
+  );
+  const granted = result === PermissionsAndroid.RESULTS.GRANTED;
+  log(`POST_NOTIFICATIONS request result=${result}`);
+  return granted;
+}
+
 async function forwardDataMessage(
   data: Record<string, string>,
   source: string
@@ -63,6 +98,7 @@ async function configureAndroidPush() {
   const appModule = require('@react-native-firebase/app');
   void appModule;
 
+  await ensureAndroidNotificationPermission();
   await messaging().requestPermission();
   const token = await messaging().getToken();
   if (token) {
@@ -103,8 +139,15 @@ export async function initializeNotiveraDemo() {
   log(`initialize started platform=${Platform.OS}`);
   await Notivera.instance.initialize(demoNotiveraConfig);
   log('initialize completed');
-  await configureAndroidPush();
-  await Notivera.instance.requestAuthorisationPrompts();
+
+  // Push permission dialogs must not block the demo UI.
+  configureAndroidPush().catch((error: unknown) => {
+    log(`Android push setup failed: ${String(error)}`);
+  });
+  Notivera.instance.requestAuthorisationPrompts().catch((error: unknown) => {
+    log(`requestAuthorisationPrompts failed: ${String(error)}`);
+  });
+
   const deviceId = await Notivera.instance.getDeviceId();
   log(`deviceId=${deviceId ?? 'null'}`);
   return deviceId;

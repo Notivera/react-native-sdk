@@ -2,6 +2,8 @@ package com.notivera
 
 import android.app.Application
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.lifecycle.Observer
 import com.facebook.react.bridge.Arguments
@@ -28,31 +30,32 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
 
   private var initialized = false
   private var eventObserver: Observer<SdkPushEvent>? = null
+  private val mainHandler = Handler(Looper.getMainLooper())
 
   override fun getName(): String = NAME
 
   override fun initialize(config: ReadableMap, promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       val app = reactApplicationContext.applicationContext as Application
       SDK.init(app, config.toSdk(), config.toPushTheme(app))
       initialized = true
       ensureEventObserver()
-      promise.resolve(null)
-    } catch (error: Throwable) {
-      promise.reject(
-        error.codeOr("sdk-error"),
-        error.message ?: "initialize failed",
-        error,
-      )
+      null
     }
   }
 
+  override fun invalidate() {
+    runOnMainThread {
+      eventObserver?.let { SDK.pushEvent.removeObserver(it) }
+      eventObserver = null
+    }
+    super.invalidate()
+  }
+
   override fun getDeviceId(promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       requireInitialized()
-      promise.resolve(SDK.getDeviceId())
-    } catch (error: Throwable) {
-      promise.reject(error.codeOr("sdk-error"), error.message, error)
+      SDK.getDeviceId()
     }
   }
 
@@ -132,28 +135,20 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
   }
 
   override fun closeNotificationView(promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       requireInitialized()
       SDK.closeNotificationView()
-      promise.resolve(null)
-    } catch (error: Throwable) {
-      promise.reject(error.codeOr("sdk-error"), error.message, error)
+      null
     }
   }
 
   override fun requestAuthorisationPrompts(promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       requireInitialized()
       val activity = reactApplicationContext.currentActivity
         ?: throw IllegalStateException("No Android Activity is attached.")
       SDK.requestGeofencePermission(activity)
-      promise.resolve(null)
-    } catch (error: Throwable) {
-      promise.reject(
-        if (error is IllegalStateException) "no-activity" else error.codeOr("sdk-error"),
-        error.message,
-        error,
-      )
+      null
     }
   }
 
@@ -177,12 +172,20 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
   }
 
   override fun handlePushMessage(data: ReadableMap, promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       requireInitialized()
-      SDK.handlePushMessage(data.toStringMap())
-      promise.resolve(null)
-    } catch (error: Throwable) {
-      promise.reject(error.codeOr("sdk-error"), error.message, error)
+      val payload = data.toStringMap()
+      val root = payload["root"]
+      Log.i(
+        TAG,
+        "handlePushMessage keys=${payload.keys} rootBytes=${root?.length ?: 0} " +
+          "demo=${payload.containsKey("PSDKDemoNotification")}",
+      )
+      if (root.isNullOrBlank()) {
+        throw IllegalArgumentException("handlePushMessage requires a non-empty 'root' string")
+      }
+      SDK.handlePushMessage(payload)
+      null
     }
   }
 
@@ -191,22 +194,50 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
     operation: String,
     call: (SDKResponse<String>) -> Unit,
   ) {
-    try {
-      requireInitialized()
-      call(
-        object : SDKResponse<String> {
-          override fun onSuccess(result: String) {
-            promise.resolve(result)
-          }
+    runOnMainThread {
+      try {
+        requireInitialized()
+        call(
+          object : SDKResponse<String> {
+            override fun onSuccess(result: String) {
+              promise.resolve(result)
+            }
 
-          override fun onError(throwable: Throwable) {
-            Log.e(TAG, "$operation failed: ${throwable.message}", throwable)
-            promise.reject(throwable.codeOr("sdk-error"), throwable.message, throwable)
-          }
-        },
-      )
-    } catch (error: Throwable) {
-      promise.reject(error.codeOr("sdk-error"), error.message, error)
+            override fun onError(throwable: Throwable) {
+              Log.e(TAG, "$operation failed: ${throwable.message}", throwable)
+              promise.reject(throwable.codeOr("sdk-error"), throwable.message, throwable)
+            }
+          },
+        )
+      } catch (error: Throwable) {
+        promise.reject(error.codeOr("sdk-error"), error.message, error)
+      }
+    }
+  }
+
+  private fun runOnMainThread(block: () -> Unit) {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+      block()
+    } else {
+      mainHandler.post(block)
+    }
+  }
+
+  private fun runOnMainThread(promise: Promise, block: () -> Any?) {
+    runOnMainThread {
+      try {
+        promise.resolve(block())
+      } catch (error: Throwable) {
+        promise.reject(
+          if (error is IllegalStateException && error.message?.contains("Activity") == true) {
+            "no-activity"
+          } else {
+            error.codeOr("sdk-error")
+          },
+          error.message ?: "operation failed",
+          error,
+        )
+      }
     }
   }
 
@@ -249,8 +280,19 @@ private fun ReadableMap.toStringMap(): Map<String, String> {
   val iterator = keySetIterator()
   while (iterator.hasNextKey()) {
     val key = iterator.nextKey()
-    val value = getString(key) ?: continue
-    out[key] = value
+    val asString = getString(key)
+    if (asString != null) {
+      out[key] = asString
+      continue
+    }
+    // Coerce non-string bridge values so offline demo payloads still flow through.
+    when (getType(key)) {
+      com.facebook.react.bridge.ReadableType.Boolean ->
+        out[key] = getBoolean(key).toString()
+      com.facebook.react.bridge.ReadableType.Number ->
+        out[key] = getDouble(key).toString()
+      else -> Unit
+    }
   }
   return out
 }
