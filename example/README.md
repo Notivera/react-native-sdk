@@ -28,3 +28,4 @@ yarn example ios
 - App Group: `group.com.notivera.app` (`NotiveraAppGroup` in Info.plist)
 - AppDelegate forwards APNs to `NotiveraBridge`
 - NSE/NCE targets (`NotiveraServiceExtension`, `NotiveraContentExtension`) are already in the Xcode project, with `NotiveraSDK.xcframework` linked (see root README §4 for host-app setup)
+- Offline Home demos: native `OfflineDemo` + `OfflineResources` (same UIKit/AVKit flow as Flutter) — schedule via `NativeModules.OfflineDemo`

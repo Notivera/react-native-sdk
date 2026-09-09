@@ -25,6 +25,10 @@ public final class NotiveraBridge: NSObject {
 
   @objc public static let shared = NotiveraBridge()
 
+  /// Posted on the main queue after `initialize` with the `Notivera` instance as `object`.
+  /// Used by the example OfflineDemo module (same role as Flutter's init notification).
+  public static let didInitializeNotification = Notification.Name("NotiveraBridgeDidInitialize")
+
   /// Process-lifetime SDK (matches Flutter: do not release on JS reload).
   private static var retainedSdk: Notivera?
   private static var pendingLaunchTap: BufferedNotificationTap?
@@ -38,6 +42,11 @@ public final class NotiveraBridge: NSObject {
 
   /// Invoked on the main queue when a native push/in-app event occurs.
   @objc public var onPushEvent: (([String: Any]) -> Void)?
+
+  /// Current SDK instance for host example code (e.g. OfflineDemo).
+  @objc public func notiveraSdk() -> Notivera? {
+    sdk ?? Self.retainedSdk
+  }
 
   private override init() {
     super.init()
@@ -198,6 +207,10 @@ public final class NotiveraBridge: NSObject {
     )
     startObservingEvents()
     Self.flushPendingNotificationResponse(delaySeconds: 0.75)
+    NotificationCenter.default.post(
+      name: Self.didInitializeNotification,
+      object: instance
+    )
   }
 
   @objc public func getDeviceIdAndReturnError(_ error: NSErrorPointer) -> String? {

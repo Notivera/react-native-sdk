@@ -40,3 +40,7 @@ Do not install a second JDK for this project unless Corretto 17 is unavailable.
 ## Example iOS extensions
 
 `example/ios/NotiveraServiceExtension` and `example/ios/NotiveraContentExtension` are Xcode app-extension targets in `NotiveraExample.xcodeproj` (App Group + `NotiveraSDK.xcframework` linked; do **not** add the `Notivera` pod to extensions). Host-app setup docs: root README §4.
+
+## Example iOS offline demos
+
+`example/ios/OfflineDemo` + `OfflineResources` mirror the Flutter example (local `UNNotification` → UIKit/AVKit video/carousel). Wired as RN module `OfflineDemo` (`installDelegate` / `schedule`). Demo-only — not part of the published package.

@@ -88,7 +88,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
+    // Real Notivera pushes → bridge. Offline demo categories → example buffer.
     NotiveraBridge.captureNotificationResponse(response)
+    PendingNotificationTap.capture(response)
     NotiveraBridge.shared.userNotificationCenter(
       center,
       didReceive: response,
