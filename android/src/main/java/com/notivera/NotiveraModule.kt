@@ -37,9 +37,18 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
   override fun initialize(config: ReadableMap, promise: Promise) {
     runOnMainThread(promise) {
       val app = reactApplicationContext.applicationContext as Application
-      SDK.init(app, config.toSdk(), config.toPushTheme(app))
+      val sdkConfig = config.toSdk()
+      val theme = config.toPushTheme(app)
+      Log.i(
+        TAG,
+        "SDK.init tenantId=${sdkConfig.tenantID} appVersion=${sdkConfig.appVersion} " +
+          "apiKeyLen=${sdkConfig.apiKey.length} enableDebug=${sdkConfig.enableDebug} " +
+          "smallIcon=${theme.smallIconRes} largeIcon=${theme.largeIconRes} color=${theme.color}",
+      )
+      SDK.init(app, sdkConfig, theme)
       initialized = true
       ensureEventObserver()
+      Log.i(TAG, "SDK.init completed")
       null
     }
   }
@@ -153,12 +162,11 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
   }
 
   override fun setPushToken(token: String, promise: Promise) {
-    try {
+    runOnMainThread(promise) {
       requireInitialized()
+      Log.i(TAG, "setFCMToken len=${token.length}")
       SDK.setFCMToken(token)
-      promise.resolve(null)
-    } catch (error: Throwable) {
-      promise.reject(error.codeOr("sdk-error"), error.message, error)
+      null
     }
   }
 
@@ -181,9 +189,6 @@ class NotiveraModule(reactContext: ReactApplicationContext) :
         "handlePushMessage keys=${payload.keys} rootBytes=${root?.length ?: 0} " +
           "demo=${payload.containsKey("PSDKDemoNotification")}",
       )
-      if (root.isNullOrBlank()) {
-        throw IllegalArgumentException("handlePushMessage requires a non-empty 'root' string")
-      }
       SDK.handlePushMessage(payload)
       null
     }

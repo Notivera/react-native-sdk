@@ -23,6 +23,7 @@ export const demoNotiveraConfig: NotiveraConfig = {
   enableGeofence: true,
   downloadConnectionType: 'wifi',
   inAppOpenDelayMs: 5000,
+  // Android-only: adaptive launcher resources under res/mipmap + values.
   pushTheme: {
     smallIcon: 'ic_launcher_foreground',
     largeIcon: 'ic_launcher_round',
@@ -30,13 +31,40 @@ export const demoNotiveraConfig: NotiveraConfig = {
   },
 };
 
+let pushConfigured = false;
+
 function log(message: string) {
   console.log(`${logTag} ${message}`);
 }
 
+/** RN Firebase v22+ modular API helpers (namespaced `messaging()` is not a function). */
+function loadFirebaseMessaging() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require('@react-native-firebase/app');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const messagingMod = require('@react-native-firebase/messaging');
+  const messaging = messagingMod.getMessaging();
+  return { messaging, messagingMod };
+}
+
+function asStringData(
+  data: Record<string, unknown> | undefined | null
+): Record<string, string> {
+  if (!data) {
+    return {};
+  }
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value == null) {
+      continue;
+    }
+    out[key] = typeof value === 'string' ? value : String(value);
+  }
+  return out;
+}
+
 /**
- * Android 13+ offline demos post system notifications via NotificationManager.
- * Without POST_NOTIFICATIONS they appear to do nothing.
+ * Android 13+ system notifications require POST_NOTIFICATIONS.
  */
 export async function ensureAndroidNotificationPermission(): Promise<boolean> {
   if (Platform.OS !== 'android') {
@@ -59,7 +87,7 @@ export async function ensureAndroidNotificationPermission(): Promise<boolean> {
     {
       title: 'Allow notifications',
       message:
-        'Notivera offline demos show as system notifications. Please allow notifications.',
+        'Notivera needs notification permission for push and offline demos.',
       buttonPositive: 'Allow',
       buttonNegative: 'Deny',
     }
@@ -69,60 +97,113 @@ export async function ensureAndroidNotificationPermission(): Promise<boolean> {
   return granted;
 }
 
-async function forwardDataMessage(
-  data: Record<string, string>,
+export async function forwardRemoteMessage(
+  data: Record<string, unknown> | undefined | null,
   source: string
 ) {
-  if (Object.keys(data).length === 0) {
+  const payload = asStringData(data);
+  log(`--- incoming push [${source}] ---`);
+  log(`data keys=${Object.keys(payload).join(',')}`);
+  if (Object.keys(payload).length === 0) {
+    log(`Forward skipped: data map is empty`);
     return;
   }
-  const isNotivera = await Notivera.instance.isNotiveraMessage(data);
+  const isNotivera = await Notivera.instance.isNotiveraMessage(payload);
   log(`${source}: isNotiveraMessage=${isNotivera}`);
   if (isNotivera) {
-    await Notivera.instance.handlePushMessage(data);
+    await Notivera.instance.handlePushMessage(payload);
+    log(`${source}: handlePushMessage completed`);
+  } else {
+    log(`${source}: not a Notivera message — leaving for host/default handling`);
   }
 }
 
 /**
  * Android-only FCM wiring. iOS uses APNs via NotiveraBridge / AppDelegate.
+ * Flow: permission → token → setPushToken → listeners.
  */
 async function configureAndroidPush() {
-  if (Platform.OS !== 'android') {
+  log(`_configurePush() entered (alreadyConfigured=${pushConfigured})`);
+  if (pushConfigured || Platform.OS !== 'android') {
+    pushConfigured = true;
+    log('_configurePush() skipped');
     return;
   }
 
-  // Lazy-require so iOS builds do not fail if Firebase native modules are absent.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const messaging = require('@react-native-firebase/messaging').default;
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const appModule = require('@react-native-firebase/app');
-  void appModule;
+  const { messaging, messagingMod } = loadFirebaseMessaging();
+  const {
+    getToken,
+    requestPermission,
+    onMessage,
+    onNotificationOpenedApp,
+    onTokenRefresh,
+    getInitialNotification,
+  } = messagingMod;
 
-  await ensureAndroidNotificationPermission();
-  await messaging().requestPermission();
-  const token = await messaging().getToken();
+  const permitted = await ensureAndroidNotificationPermission();
+  log(`notification permission granted=${permitted}`);
+
+  const authStatus = await requestPermission(messaging);
+  log(`messaging.requestPermission status=${String(authStatus)}`);
+
+  const token = await getToken(messaging);
   if (token) {
-    log(`FCM token (${token.length} chars)`);
+    log(`FCM token received (${token.length} chars)`);
     await Notivera.instance.setPushToken(token);
+    log('setPushToken() completed');
+  } else {
+    log('FCM token is null/empty — setPushToken skipped');
   }
 
-  messaging().onTokenRefresh(async (refreshed: string) => {
-    await Notivera.instance.setPushToken(refreshed);
+  onTokenRefresh(messaging, async (refreshed: string) => {
+    log(`FCM token refreshed (${refreshed.length} chars)`);
+    try {
+      await Notivera.instance.setPushToken(refreshed);
+      log('setPushToken() completed after refresh');
+    } catch (error) {
+      log(`setPushToken() after refresh failed: ${String(error)}`);
+    }
   });
 
-  messaging().onMessage(async (remoteMessage: { data?: Record<string, string> }) => {
-    await forwardDataMessage(remoteMessage.data ?? {}, 'onMessage');
+  onMessage(messaging, async (remoteMessage: { data?: Record<string, unknown> }) => {
+    log('TRIGGER: onMessage (foreground)');
+    await forwardRemoteMessage(remoteMessage.data, 'onMessage');
   });
 
-  messaging().onNotificationOpenedApp(
-    async (remoteMessage: { data?: Record<string, string> }) => {
-      await forwardDataMessage(remoteMessage.data ?? {}, 'onNotificationOpenedApp');
+  onNotificationOpenedApp(
+    messaging,
+    async (remoteMessage: { data?: Record<string, unknown> }) => {
+      log('TRIGGER: onNotificationOpenedApp');
+      await forwardRemoteMessage(remoteMessage.data, 'onNotificationOpenedApp');
     }
   );
 
-  const initial = await messaging().getInitialNotification();
+  const initial = await getInitialNotification(messaging);
   if (initial?.data) {
-    await forwardDataMessage(initial.data, 'getInitialNotification');
+    log('TRIGGER: getInitialNotification');
+    await forwardRemoteMessage(initial.data, 'getInitialNotification');
+  } else {
+    log('getInitialNotification() returned null');
+  }
+
+  pushConfigured = true;
+  log('_configurePush() finished');
+}
+
+/**
+ * Background/quit FCM handler (Android). Must be registered before AppRegistry.
+ */
+export async function firebaseMessagingBackgroundHandler(remoteMessage: {
+  data?: Record<string, unknown>;
+}) {
+  log('TRIGGER: onBackgroundMessage');
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('@react-native-firebase/app');
+    await Notivera.instance.initialize(demoNotiveraConfig);
+    await forwardRemoteMessage(remoteMessage.data, 'onBackgroundMessage');
+  } catch (error) {
+    log(`onBackgroundMessage failed: ${String(error)}`);
   }
 }
 
@@ -136,19 +217,35 @@ export function subscribeDemoEvents(
 }
 
 export async function initializeNotiveraDemo() {
-  log(`initialize started platform=${Platform.OS}`);
-  await Notivera.instance.initialize(demoNotiveraConfig);
-  log('initialize completed');
+  log(
+    `initializeNotiveraDemo() started platform=${Platform.OS} tenantId=${demoTenantId} appVersion=${demoAppVersion} apiKeyPrefix=${demoApiKey.slice(0, 8)}`
+  );
 
-  // Push permission dialogs must not block the demo UI.
-  configureAndroidPush().catch((error: unknown) => {
-    log(`Android push setup failed: ${String(error)}`);
-  });
-  Notivera.instance.requestAuthorisationPrompts().catch((error: unknown) => {
+  // Placeholder guard for notiveraDemoSecrets.example.ts; local secrets use a real key literal.
+  // @ts-expect-error TS2367 — demoApiKey is a concrete string literal in the local secrets file
+  if (!demoApiKey || demoApiKey === 'YOUR_API_KEY') {
+    throw new Error(
+      'Demo secrets missing. Copy values into example/src/notiveraDemoSecrets.ts from notiveraDemoSecrets.example.ts'
+    );
+  }
+
+  log('Calling Notivera.initialize');
+  await Notivera.instance.initialize(demoNotiveraConfig);
+  log('Notivera.initialize completed');
+
+  // Await push wiring so FCM token is registered before UI is "Ready".
+  await configureAndroidPush();
+
+  log('Calling requestAuthorisationPrompts()');
+  try {
+    await Notivera.instance.requestAuthorisationPrompts();
+    log('requestAuthorisationPrompts() completed');
+  } catch (error) {
     log(`requestAuthorisationPrompts failed: ${String(error)}`);
-  });
+  }
 
   const deviceId = await Notivera.instance.getDeviceId();
-  log(`deviceId=${deviceId ?? 'null'}`);
+  log(`Device ID after init: ${deviceId ?? 'null'}`);
+  log('initializeNotiveraDemo() finished');
   return deviceId;
 }

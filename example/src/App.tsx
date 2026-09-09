@@ -45,7 +45,7 @@ export default function App() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.appBar}>
-        <Text style={styles.appBarTitle}>Notivera</Text>
+        <Text style={styles.appBarTitle}>Notivera React</Text>
       </View>
       {status !== 'Ready' ? (
         <View style={styles.banner}>
