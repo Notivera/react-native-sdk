@@ -39,4 +39,4 @@ Do not install a second JDK for this project unless Corretto 17 is unavailable.
 
 ## Example iOS extensions
 
-`example/ios/NotiveraServiceExtension` and `example/ios/NotiveraContentExtension` contain source templates. Add them as Xcode app-extension targets (File → New → Target), set bundle IDs, App Groups, and link `NotiveraSDK`.
+`example/ios/NotiveraServiceExtension` and `example/ios/NotiveraContentExtension` are Xcode app-extension targets in `NotiveraExample.xcodeproj` (App Group + `NotiveraSDK.xcframework` linked; do **not** add the `Notivera` pod to extensions). Host-app setup docs: root README §4.

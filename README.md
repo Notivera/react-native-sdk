@@ -152,11 +152,35 @@ Also forward `didFailToRegister…`, `didReceiveRemoteNotification…fetchComple
 
 ### 4. Notification extensions (required for rich push)
 
-Add **Notification Service Extension** and **Notification Content Extension** targets in the host Xcode app (same as the native iOS / Flutter examples). Source templates live under `example/ios/NotiveraServiceExtension` and `example/ios/NotiveraContentExtension`.
+Notivera rich push (video, carousel, interactive content) needs **both** extension targets in the **host** Xcode app. They are **not** shipped inside this RN package or the XCFramework — you add them to your app project (same as the native iOS / Flutter SDK). Templates live under `example/ios/NotiveraServiceExtension` and `example/ios/NotiveraContentExtension`.
 
-1. Link **NotiveraSDK** to both extension targets (from the pod / vendored XCFramework).
-2. Use the **same App Group** as the main app.
-3. Service extension subclass:
+#### Link NotiveraSDK into the extensions (required)
+
+After `pod install`, the binary is at:
+
+`node_modules/react-native-notivera/ios/Frameworks/NotiveraSDK.xcframework`
+
+**Do not** add the `Notivera` CocoaPod to extension targets. That pod pulls React Native / Turbo Module deps and is invalid for app extensions. Link the **XCFramework only**.
+
+For each extension target:
+
+1. **General → Frameworks and Libraries → + → Add Other… → Add Files…**
+2. Select `NotiveraSDK.xcframework` (path above, or copy/vendor it into your repo).
+3. Set linkage to **Do Not Embed** on the extension (the host app already embeds the framework via the `Notivera` pod).
+4. Add **UserNotifications.framework** (service + content) and **UserNotificationsUI.framework** (content only).
+5. Build settings:
+   - `FRAMEWORK_SEARCH_PATHS` → include the directory that contains `NotiveraSDK.xcframework`
+   - `LD_RUNPATH_SEARCH_PATHS` → `$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks`
+   - `APPLICATION_EXTENSION_API_ONLY` → `YES`
+6. Use the **same App Group** as the main app (`NotiveraAppGroup` in each extension `Info.plist` + App Groups entitlement on the app **and** both extensions).
+7. Embed both `.appex` products on the main app target (**Embed Foundation Extensions** / Embed App Extensions). Bundle IDs must be prefixed with the app ID, e.g. `com.yourcompany.yourapp.NotiveraServiceExtension`.
+
+Without linking `NotiveraSDK`, `import NotiveraSDK` / `NotiveraServiceExtension` / `NotiveraCarouselNotificationContentViewController` will not build in the extensions.
+
+#### Notification Service Extension
+
+1. Xcode: **File → New → Target… → Notification Service Extension**
+2. Replace the generated class with a subclass of `NotiveraServiceExtension`. This is the iOS equivalent of Android’s JS `isNotiveraMessage` / `handlePushMessage` — do **not** call those JS APIs for APNs:
 
 ```swift
 import NotiveraSDK
@@ -176,9 +200,67 @@ class NotificationServiceExtension: NotiveraServiceExtension {
 }
 ```
 
-4. Content extension storyboard VC custom class: `NotiveraCarouselNotificationContentViewController` (module `NotiveraSDK`), category `PushologiesCarouselNotification`.
+3. Extension `Info.plist`:
 
-Suggested extension bundle IDs for the demo app: `com.notivera.app.PushNotificationServiceExtension` and `com.notivera.app.Carousel`.
+```xml
+<key>NSExtension</key>
+<dict>
+  <key>NSExtensionPointIdentifier</key>
+  <string>com.apple.usernotifications.service</string>
+  <key>NSExtensionPrincipalClass</key>
+  <string>$(PRODUCT_MODULE_NAME).NotificationServiceExtension</string>
+  <key>UNNotificationExtensionCategory</key>
+  <array>
+    <string>NSDKNotification</string>
+    <string>PushologiesCarouselNotification</string>
+  </array>
+</dict>
+<key>NotiveraAppGroup</key>
+<string>group.com.yourcompany.yourapp</string>
+```
+
+#### Notification Content Extension (carousel)
+
+1. Xcode: **File → New → Target… → Notification Content Extension**
+2. In the storyboard (`MainInterface`), set the view controller **Custom Class** to:
+   - Class: `NotiveraCarouselNotificationContentViewController`
+   - Module: `NotiveraSDK`
+   (A stub `UIViewController` Swift file can remain unused; the storyboard must load the SDK class.)
+3. Extension `Info.plist`:
+
+```xml
+<key>NSExtension</key>
+<dict>
+  <key>NSExtensionAttributes</key>
+  <dict>
+    <key>UNNotificationExtensionCategory</key>
+    <array>
+      <string>PushologiesCarouselNotification</string>
+    </array>
+    <key>UNNotificationExtensionDefaultContentHidden</key>
+    <string>NO</string>
+    <key>UNNotificationExtensionInitialContentSizeRatio</key>
+    <real>1</real>
+    <key>UNNotificationExtensionUserInteractionEnabled</key>
+    <true/>
+  </dict>
+  <key>NSExtensionMainStoryboard</key>
+  <string>MainInterface</string>
+  <key>NSExtensionPointIdentifier</key>
+  <string>com.apple.usernotifications.content-extension</string>
+</dict>
+<key>NotiveraAppGroup</key>
+<string>group.com.yourcompany.yourapp</string>
+```
+
+#### Categories
+
+| Category | Used by |
+|----------|---------|
+| `NSDKNotification` | Service extension (standard / video-style pushes) |
+| `PushologiesCarouselNotification` | Service + content extensions (carousel) |
+
+Without these targets, App Group sharing, and `NotiveraSDK` linked into both extensions, rich push will not work correctly on iOS.
 
 ---
 
@@ -197,4 +279,4 @@ Copy `example/src/notiveraDemoSecrets.example.ts` → `notiveraDemoSecrets.ts` a
 Android demo `applicationId`: `com.notivera.demo`  
 iOS demo bundle / App Group: `com.notivera.app` / `group.com.notivera.app`
 
-Wire the NSE/NCE targets in Xcode once (files are already under `example/ios/`).
+NSE/NCE targets are already in `example/ios/NotiveraExample.xcodeproj` (`NotiveraServiceExtension`, `NotiveraContentExtension`), with `NotiveraSDK.xcframework` linked and both appexes embedded.

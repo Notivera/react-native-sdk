@@ -27,4 +27,4 @@ yarn example ios
 - Bundle ID: `com.notivera.app`
 - App Group: `group.com.notivera.app` (`NotiveraAppGroup` in Info.plist)
 - AppDelegate forwards APNs to `NotiveraBridge`
-- Extension sources under `NotiveraServiceExtension/` and `NotiveraContentExtension/` — add as Xcode targets and link `NotiveraSDK` (see root README)
+- NSE/NCE targets (`NotiveraServiceExtension`, `NotiveraContentExtension`) are already in the Xcode project, with `NotiveraSDK.xcframework` linked (see root README §4 for host-app setup)
