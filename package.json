@@ -1,6 +1,6 @@
 {
   "name": "notivera-react-native",
-  "version": "5.0.1",
+  "version": "5.0.0",
   "description": "React Native wrapper for the Notivera Android and iOS SDKs",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
