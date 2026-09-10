@@ -104,13 +104,22 @@ Our pre-commit hooks verify that your commit message matches this format when co
 
 ### Publishing to npm
 
-We use [release-it](https://github.com/release-it/release-it) to make it easier to publish new versions. It handles common tasks like bumping version based on semver, creating tags and releases etc.
+We use [release-it](https://github.com/release-it/release-it) to publish. It bumps `package.json`, commits, creates a **git tag** (`vX.Y.Z`), pushes with git, and publishes to npm. No GitHub Release / `gh` / `GITHUB_TOKEN` — the tag is enough.
 
-To publish new versions, run the following:
+Remote: `git@github.com:Notivera/react-native-sdk.git`
 
 ```sh
+# Interactive: choose patch / minor / major from the current version
 yarn release
+
+# Exact version (you control it)
+yarn release -- 5.0.2
+
+# Dry run
+yarn release -- --dry-run
 ```
+
+Requires `npm login` and git SSH push access to that remote. Package version starts at **5.0.1** (aligned with native Android SDK).
 
 
 ### Scripts

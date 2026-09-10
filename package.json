@@ -1,6 +1,6 @@
 {
   "name": "notivera-react-native",
-  "version": "0.1.0",
+  "version": "5.0.1",
   "description": "React Native wrapper for the Notivera Android and iOS SDKs",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
@@ -38,7 +38,7 @@
     "typecheck": "tsc",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "test": "jest",
-    "release": "release-it --only-version",
+    "release": "release-it",
     "web": "vite",
     "build:web": "vite build"
   },
@@ -49,14 +49,14 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Notivera/react_sdk.git"
+    "url": "git+ssh://git@github.com/Notivera/react-native-sdk.git"
   },
   "author": "Notivera <dev@notivera.com> (https://notivera.com)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Notivera/react_sdk/issues"
+    "url": "https://github.com/Notivera/react-native-sdk/issues"
   },
-  "homepage": "https://github.com/Notivera/react_sdk#readme",
+  "homepage": "https://github.com/Notivera/react-native-sdk#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
@@ -151,13 +151,15 @@
   "release-it": {
     "git": {
       "commitMessage": "chore: release ${version}",
-      "tagName": "v${version}"
+      "tagName": "v${version}",
+      "push": true,
+      "requireCleanWorkingDir": true
     },
     "npm": {
       "publish": true
     },
     "github": {
-      "release": true
+      "release": false
     },
     "plugins": {
       "@release-it/conventional-changelog": {

@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.authors      = package["author"]
 
   s.platforms    = { :ios => "15.1" }
-  s.source       = { :git => "https://github.com/Notivera/react_sdk.git", :tag => "#{s.version}" }
+  s.source       = { :git => "https://github.com/Notivera/react-native-sdk.git", :tag => "#{s.version}" }
 
   # Only bridge sources — do not recurse into ios/Frameworks (vendored XCFramework).
   s.source_files = "ios/*.{h,m,mm,swift,cpp}"
