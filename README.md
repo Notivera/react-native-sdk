@@ -1,4 +1,4 @@
-# react-native-notivera
+# notivera-react-native
 
 React Native Turbo Module wrapper for the [Notivera](https://notivera.com/) native Android and iOS SDKs.
 
@@ -10,15 +10,15 @@ Native pins (same as the Flutter plugin):
 Requires **React Native 0.76+** (New Architecture / Turbo Modules). Minimum iOS **15.1** (React Native), Android **minSdk 24**. The underlying Notivera iOS SDK supports iOS 14+, but this wrapper follows RN’s deployment target.
 
 ```sh
-yarn add react-native-notivera
+yarn add notivera-react-native
 # or
-npm install react-native-notivera
+npm install notivera-react-native
 ```
 
 ## JavaScript usage
 
 ```ts
-import { Notivera, type NotiveraPushEvent } from 'react-native-notivera';
+import { Notivera, type NotiveraPushEvent } from 'notivera-react-native';
 
 async function startNotivera() {
   Notivera.instance.addPushEventListener((event: NotiveraPushEvent) => {
@@ -158,7 +158,7 @@ Notivera rich push (video, carousel, interactive content) needs **both** extensi
 
 After `pod install`, the binary is at:
 
-`node_modules/react-native-notivera/ios/Frameworks/NotiveraSDK.xcframework`
+`node_modules/notivera-react-native/ios/Frameworks/NotiveraSDK.xcframework`
 
 **Do not** add the `Notivera` CocoaPod to extension targets. That pod pulls React Native / Turbo Module deps and is invalid for app extensions. Link the **XCFramework only**.
 

@@ -3,7 +3,7 @@ import {
   Notivera,
   type NotiveraConfig,
   type NotiveraPushEvent,
-} from 'react-native-notivera';
+} from 'notivera-react-native';
 import {
   demoApiKey,
   demoApiSecret,

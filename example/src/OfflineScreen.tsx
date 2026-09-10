@@ -9,7 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { Notivera } from 'react-native-notivera';
+import { Notivera } from 'notivera-react-native';
 import { colors } from './theme';
 
 type Props = {

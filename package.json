@@ -1,12 +1,12 @@
 {
-  "name": "react-native-notivera",
+  "name": "notivera-react-native",
   "version": "0.1.0",
   "description": "React Native wrapper for the Notivera Android and iOS SDKs",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
     ".": {
-      "react-native-notivera-source": "./src/index.tsx",
+      "notivera-react-native-source": "./src/index.tsx",
       "types": "./lib/typescript/src/index.d.ts",
       "default": "./lib/module/index.js"
     },
@@ -32,7 +32,7 @@
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace react-native-notivera-example",
+    "example": "yarn workspace notivera-react-native-example",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
     "prepare": "bob build",
     "typecheck": "tsc",

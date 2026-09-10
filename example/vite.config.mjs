@@ -9,7 +9,7 @@ export default defineConfig((env) =>
       alias: {
         [pack.name]: new URL('..', import.meta.url),
       },
-      conditions: ['react-native-notivera-source'],
+      conditions: ['notivera-react-native-source'],
       dedupe: Object.keys(pack.peerDependencies),
     },
   })

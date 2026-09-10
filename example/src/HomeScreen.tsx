@@ -1,5 +1,5 @@
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Notivera } from 'react-native-notivera';
+import { Notivera } from 'notivera-react-native';
 import carouselNotification from './assets/carousel_notification.json';
 import kitLaunchNotification from './assets/kit_launch_notification.json';
 import startingLineup from './assets/starting_lineup.json';

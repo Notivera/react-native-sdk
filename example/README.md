@@ -1,6 +1,6 @@
 # Notivera React Native example
 
-Demo host for `react-native-notivera`.
+Demo host for `notivera-react-native`.
 
 ## Setup
 
