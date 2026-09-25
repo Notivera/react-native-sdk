@@ -4,7 +4,7 @@ React Native Turbo Module wrapper for the [Notivera](https://notivera.com/) nati
 
 Native pins (same as the Flutter plugin):
 
-- Android: `com.github.Notivera:android-sdk:5.0.1` (JitPack)
+- Android: `com.github.Notivera:android-sdk:5.0.2` (JitPack)
 - iOS: `NotiveraSDK` **5.0.0** XCFramework from [ios-spm-notivera](https://github.com/Notivera/ios-spm-notivera)
 
 Requires **React Native 0.76+** (New Architecture / Turbo Modules). Minimum iOS **15.1** (React Native), Android **minSdk 24**. The underlying Notivera iOS SDK supports iOS 14+, but this wrapper follows RN’s deployment target.

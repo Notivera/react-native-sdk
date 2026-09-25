@@ -55,6 +55,6 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  implementation "com.github.Notivera:android-sdk:5.0.1"
+  implementation "com.github.Notivera:android-sdk:5.0.2"
   implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.7"
 }

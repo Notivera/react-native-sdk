@@ -5,7 +5,7 @@
 | Layer | Version |
 |-------|---------|
 | npm package | see `package.json` |
-| Android native | `com.github.Notivera:android-sdk:5.0.1` in `android/build.gradle` |
+| Android native | `com.github.Notivera:android-sdk:5.0.2` in `android/build.gradle` |
 | iOS native | `NotiveraSDK` **5.0.0** XCFramework in `ios/Frameworks/` |
 
 Refresh iOS binary:
